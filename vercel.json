@@ -2,8 +2,24 @@
   "outputDirectory": ".",
   "cleanUrls": true,
   "trailingSlash": false,
-  "rewrites": [
-    { "source": "/((?!robots\\.txt|sitemap\\.xml|og-image|favicon|_redirects|public/).*)", "destination": "/index.html" }
+  "routes": [
+    { "src": "/robots.txt", "dest": "/robots.txt" },
+    { "src": "/sitemap.xml", "dest": "/sitemap.xml" },
+    { "src": "/og-image.png", "dest": "/og-image.png" },
+    { "src": "/favicon.ico", "dest": "/favicon.ico" },
+    { "src": "/_redirects", "dest": "/_redirects" },
+    { "src": "/public/(.*)", "dest": "/public/$1" },
+    { "src": "/jobs", "dest": "/index.html" },
+    { "src": "/jobs/(.*)", "dest": "/index.html" },
+    { "src": "/categories", "dest": "/index.html" },
+    { "src": "/categories/(.*)", "dest": "/index.html" },
+    { "src": "/countries", "dest": "/index.html" },
+    { "src": "/countries/(.*)", "dest": "/index.html" },
+    { "src": "/articles", "dest": "/index.html" },
+    { "src": "/articles/(.*)", "dest": "/index.html" },
+    { "src": "/faq", "dest": "/index.html" },
+    { "src": "/about", "dest": "/index.html" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ],
   "headers": [
     {
@@ -13,12 +29,6 @@
         { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
         { "key": "X-XSS-Protection", "value": "1; mode=block" }
-      ]
-    },
-    {
-      "source": "/index.html",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
       ]
     },
     {
