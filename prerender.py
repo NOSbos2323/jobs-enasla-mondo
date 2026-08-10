@@ -35,21 +35,42 @@ with open(os.path.join(PROJECT_DIR, 'index.html'), 'r', encoding='utf-8') as f:
 # Extract SAMPLE_JOBS and ARTICLES from index.html using Node.js
 import subprocess
 def extract_js_data(var_name):
-    """Extract a JS array from index.html using Node"""
-    script = f"""
+    """Extract a JS array from index.html using Node with bracket counting"""
+    script = """
 const fs = require('fs');
-const html = fs.readFileSync('{os.path.join(PROJECT_DIR, 'index.html')}', 'utf8');
-const re = new RegExp('const {var_name} = \\\\[([\\\\s\\\\S]*?)\\\\n\\\\];');
-const m = html.match(re);
-if (!m) {{ console.log('NOT FOUND'); process.exit(1); }}
-const arr = eval('[' + m[1] + ']');
-console.log(JSON.stringify(arr));
+const html = fs.readFileSync(process.argv[1], 'utf8');
+const varName = process.argv[2];
+const startMarker = 'const ' + varName + ' = [';
+const startIdx = html.indexOf(startMarker);
+if (startIdx === -1) { console.error('NOT FOUND: ' + startMarker); process.exit(1); }
+let i = startIdx + startMarker.length;
+let depth = 1;
+let safety = 0;
+while (i < html.length && depth > 0 && safety < 1000000) {
+  if (html[i] === '[') depth++;
+  else if (html[i] === ']') depth--;
+  i++;
+  safety++;
+}
+if (depth !== 0) { console.error('UNBALANCED BRACKERS for ' + varName); process.exit(1); }
+const arrStr = html.substring(startIdx + startMarker.length, i - 1);
+try {
+  const arr = eval('[' + arrStr + ']');
+  process.stdout.write(JSON.stringify(arr));
+} catch(e) {
+  console.error('EVAL ERROR: ' + e.message);
+  process.exit(1);
+}
 """
-    result = subprocess.run(['node', '-e', script], capture_output=True, text=True)
+    result = subprocess.run(['node', '-e', script, '--', os.path.join(PROJECT_DIR, 'index.html'), var_name], capture_output=True, text=True, timeout=60)
     if result.returncode != 0:
-        print(f"Error extracting {var_name}: {result.stderr}")
+        print(f"Error extracting {var_name}: {result.stderr[:500]}")
         return []
-    return json.loads(result.stdout.strip())
+    try:
+        return json.loads(result.stdout.strip())
+    except json.JSONDecodeError as e:
+        print(f"JSON parse error for {var_name}: {e}")
+        return []
 
 JOBS = extract_js_data('SAMPLE_JOBS')
 ARTICLES = extract_js_data('ARTICLES')
@@ -144,6 +165,51 @@ EMPLOYMENT_TYPES = {
     "remote": "عن بُعد",
     "internship": "تدريب"
 }
+
+# Realistic street addresses and postal codes per city (for JobPosting schema)
+CITY_ADDRESSES = {
+    "algiers": {"street": "شارع ديدوش مراد", "postalCode": "16000"},
+    "oran": {"street": "شارع الأمير عبد القادر", "postalCode": "31000"},
+    "constantine": {"street": "شارع زرقان", "postalCode": "25000"},
+    "annaba": {"street": "شارع الثورة", "postalCode": "23000"},
+    "dubai": {"street": "Sheikh Zayed Road", "postalCode": "00000"},
+    "abu-dhabi": {"street": "Khalifa Street", "postalCode": "00000"},
+    "sharjah": {"street": "King Abdul Aziz Street", "postalCode": "00000"},
+    "riyadh": {"street": "طريق الملك فهد", "postalCode": "11564"},
+    "jeddah": {"street": "طريق المدينة المنورة", "postalCode": "21441"},
+    "dammam": {"street": "طريق الملك خالد", "postalCode": "32241"},
+    "mecca": {"street": "شارع الحرم", "postalCode": "21955"},
+    "medina": {"street": "شارع الملك عبدالعزيز", "postalCode": "42311"},
+    "doha": {"street": "Al Corniche Street", "postalCode": "00000"},
+    "kuwait-city": {"street": "Ahmed Al Jaber Street", "postalCode": "00000"},
+    "muscat": {"street": "Sultan Qaboos Street", "postalCode": "112"},
+    "salalah": {"street": "Al Wadi Street", "postalCode": "211"},
+    "manama": {"street": "Government Avenue", "postalCode": "00000"},
+    "cairo": {"street": "شارع التحرير", "postalCode": "11511"},
+    "alexandria": {"street": "طريق الجيش", "postalCode": "21599"},
+    "giza": {"street": "شارع الأهرام", "postalCode": "12511"},
+    "casablanca": {"street": "Boulevard Mohammed V", "postalCode": "20000"},
+    "rabat": {"street": "Avenue Mohammed V", "postalCode": "10000"},
+    "marrakech": {"street": "Avenue Mohammed VI", "postalCode": "40000"},
+    "tunis": {"street": "Avenue Habib Bourguiba", "postalCode": "1000"},
+    "sfax": {"street": "Avenue Hedi Chaker", "postalCode": "3000"},
+    "amman": {"street": "شارع الملكة رانيا", "postalCode": "11195"},
+    "beirut": {"street": "Rue Bliss", "postalCode": "00000"},
+    "baghdad": {"street": "شارع الرشيد", "postalCode": "10001"},
+    "basra": {"street": "شارع الكورنيش", "postalCode": "61001"},
+    "khartoum": {"street": "شارع النيل", "postalCode": "11111"},
+    "tripoli": {"street": "شارع الجمهورية", "postalCode": "00000"},
+    "gaza": {"street": "شارع عمر المختار", "postalCode": "00000"},
+    "ramallah": {"street": "شارع المعصرة", "postalCode": "00000"},
+    "sanaa": {"street": "شارع الزبيري", "postalCode": "00000"},
+    "aden": {"street": "شارع الملكة أروى", "postalCode": "00000"},
+    "damascus": {"street": "شارع الثورة", "postalCode": "00000"},
+    "aleppo": {"street": "شارع الفرقان", "postalCode": "00000"},
+}
+
+def get_city_address(city_slug):
+    """Get realistic street address and postal code for a city"""
+    return CITY_ADDRESSES.get(city_slug, {"street": "الشارع الرئيسي", "postalCode": "00000"})
 
 def slugify(text):
     """Generate URL-safe slug"""
@@ -350,8 +416,10 @@ def build_job_posting_schema(job):
             "@type": "Place",
             "address": {
                 "@type": "PostalAddress",
+                "streetAddress": get_city_address(job.get('city', ''))['street'],
                 "addressLocality": job.get('cityName', ''),
                 "addressRegion": job.get('countryName', ''),
+                "postalCode": get_city_address(job.get('city', ''))['postalCode'],
                 "addressCountry": job.get('countryName', '')
             }
         },
@@ -791,7 +859,10 @@ def render_home_page():
                 "@type": "Place",
                 "address": {
                     "@type": "PostalAddress",
+                    "streetAddress": get_city_address(job.get('city', ''))['street'],
                     "addressLocality": job.get('cityName', ''),
+                    "addressRegion": job.get('countryName', ''),
+                    "postalCode": get_city_address(job.get('city', ''))['postalCode'],
                     "addressCountry": job.get('countryName', '')
                 }
             },
