@@ -2,7 +2,6 @@
   "outputDirectory": "dist",
   "trailingSlash": false,
   "cleanUrls": true,
-  "buildCommand": "python3 prerender.py && python3 generate_sitemap.py",
   "rewrites": [
     { "source": "/jobs", "destination": "/index.html" },
     { "source": "/categories", "destination": "/index.html" },
