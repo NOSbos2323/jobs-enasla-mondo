@@ -1,0 +1,57 @@
+# JobFinder - Robots.txt
+# https://jobs-enasla-mondo.vercel.app/
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /*.json$
+Disallow: /private/
+
+# Googlebot - السماح الكامل
+User-agent: Googlebot
+Allow: /
+Allow: /*.css$
+Allow: /*.js$
+Allow: /*.png$
+Allow: /*.jpg$
+Allow: /*.webp$
+Allow: /*.svg$
+
+User-agent: Googlebot-Image
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+# السماح لعناكب التوظيف المتخصصة
+User-agent: JobsBot
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: LinkedInBot
+Allow: /
+
+# منع الزواحف السيئة
+User-agent: AhrefsBot
+Crawl-delay: 10
+
+User-agent: SemrushBot
+Crawl-delay: 10
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+# معدل الزحف
+Crawl-delay: 1
+
+# خريطة الموقع
+Sitemap: https://jobs-enasla-mondo.vercel.app/sitemap.xml
