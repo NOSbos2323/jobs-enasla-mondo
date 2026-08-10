@@ -1,25 +1,21 @@
 {
   "outputDirectory": ".",
-  "cleanUrls": true,
   "trailingSlash": false,
-  "routes": [
-    { "src": "/robots.txt", "dest": "/robots.txt" },
-    { "src": "/sitemap.xml", "dest": "/sitemap.xml" },
-    { "src": "/og-image.png", "dest": "/og-image.png" },
-    { "src": "/favicon.ico", "dest": "/favicon.ico" },
-    { "src": "/_redirects", "dest": "/_redirects" },
-    { "src": "/public/(.*)", "dest": "/public/$1" },
-    { "src": "/jobs", "dest": "/index.html" },
-    { "src": "/jobs/(.*)", "dest": "/index.html" },
-    { "src": "/categories", "dest": "/index.html" },
-    { "src": "/categories/(.*)", "dest": "/index.html" },
-    { "src": "/countries", "dest": "/index.html" },
-    { "src": "/countries/(.*)", "dest": "/index.html" },
-    { "src": "/articles", "dest": "/index.html" },
-    { "src": "/articles/(.*)", "dest": "/index.html" },
-    { "src": "/faq", "dest": "/index.html" },
-    { "src": "/about", "dest": "/index.html" },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "rewrites": [
+    { "source": "/robots.txt", "destination": "/robots.txt" },
+    { "source": "/sitemap.xml", "destination": "/sitemap.xml" },
+    { "source": "/og-image.png", "destination": "/og-image.png" },
+    { "source": "/jobs", "destination": "/index.html" },
+    { "source": "/jobs/:path*", "destination": "/index.html" },
+    { "source": "/categories", "destination": "/index.html" },
+    { "source": "/categories/:path*", "destination": "/index.html" },
+    { "source": "/countries", "destination": "/index.html" },
+    { "source": "/countries/:path*", "destination": "/index.html" },
+    { "source": "/articles", "destination": "/index.html" },
+    { "source": "/articles/:path*", "destination": "/index.html" },
+    { "source": "/faq", "destination": "/index.html" },
+    { "source": "/about", "destination": "/index.html" },
+    { "source": "/:path*", "destination": "/index.html" }
   ],
   "headers": [
     {
@@ -29,20 +25,6 @@
         { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
         { "key": "X-XSS-Protection", "value": "1; mode=block" }
-      ]
-    },
-    {
-      "source": "/robots.txt",
-      "headers": [
-        { "key": "Content-Type", "value": "text/plain; charset=utf-8" },
-        { "key": "Cache-Control", "value": "public, max-age=86400" }
-      ]
-    },
-    {
-      "source": "/sitemap.xml",
-      "headers": [
-        { "key": "Content-Type", "value": "application/xml; charset=utf-8" },
-        { "key": "Cache-Control", "value": "public, max-age=86400" }
       ]
     }
   ]
