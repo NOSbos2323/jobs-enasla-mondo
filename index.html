@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="google-site-verification" content="ReJX1QBSZfBdjvyLEsZR1dvg5d9V8F-ukyMzsVqhvFo">
 <meta name="theme-color" content="#2563eb" id="themeColor">
 <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
 <meta name="googlebot" content="index, follow">
@@ -13,6 +14,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="format-detection" content="telephone=no">
+<meta name="color-scheme" content="light dark">
 
 <!-- Dynamic SEO tags (managed by JS) -->
 <title id="pageTitle">JobFinder - منصة البحث عن الوظائف في الجزائر ودول الخليج</title>
@@ -40,15 +42,41 @@
 
 <!-- Favicon -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232563eb'/><text y='70' x='50' font-size='60' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'>J</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232563eb'/><text y='70' x='50' font-size='60' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'>J</text></svg>">
 
 <!-- SEO: Sitemap & Robots -->
 <link rel="sitemap" type="application/xml" href="/sitemap.xml">
-<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
 
-<!-- Preconnect -->
+<!-- Critical inline script: prevent FOUC (Flash Of Unstyled Content) & theme/lang flicker -->
+<script>
+(function(){
+  'use strict';
+  // Apply theme IMMEDIATELY before CSS loads
+  try {
+    var t = localStorage.getItem('jobfinder_theme');
+    if (!t) {
+      t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.setAttribute('data-theme', t);
+  } catch(e) { document.documentElement.setAttribute('data-theme', 'light'); }
+  // Apply language direction IMMEDIATELY
+  try {
+    var lang = localStorage.getItem('jobfinder_lang');
+    if (!lang) {
+      var bl = (navigator.language || 'ar').toLowerCase();
+      lang = bl.indexOf('ar') === 0 ? 'ar' : (bl.indexOf('fr') === 0 ? 'fr' : 'en');
+    }
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  } catch(e) {}
+})();
+</script>
+
+<!-- Preload critical resources -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Tajawal:wght@400;500;700;800&display=swap">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
 
 <!-- JSON-LD: Organization -->
 <script type="application/ld+json" id="ldOrganization">
@@ -164,9 +192,23 @@ body{
   min-height:100vh;
   display:flex;
   flex-direction:column;
-  transition:background var(--transition),color var(--transition);
+  transition:background-color .15s ease,color .15s ease;
   overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  text-rendering:optimizeLegibility;
+  /* Anti-flicker: hide body until ready class is added */
+  opacity:0;
 }
+body.ready{opacity:1;transition:opacity .15s ease,background-color .15s ease,color .15s ease}
+/* Fallback: if JS fails, show body after 2s */
+@keyframes failsafe{to{opacity:1}}
+body{animation:failsafe 0s 2s forwards}
+body.ready{animation:none}
+/* Prevent iOS Safari text size adjust */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+/* Prevent horizontal scroll on mobile */
+*,*::before,*::after{max-width:100%}
 h1,h2,h3,h4,h5,h6{font-family:var(--font-heading);font-weight:700;line-height:1.3;color:var(--text)}
 a{color:var(--primary);text-decoration:none;transition:color var(--transition)}
 a:hover{color:var(--primary-dark)}
@@ -5590,9 +5632,10 @@ window.addEventListener('popstate', router);
 // THEME TOGGLE
 // ============================================
 function initTheme() {
-  const saved = localStorage.getItem('jobfinder_theme') || 'light';
-  document.documentElement.setAttribute('data-theme', saved);
-  updateThemeIcon(saved);
+  // Theme was already applied by the critical inline script in <head>
+  // Here we just sync the icon with the current state
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  updateThemeIcon(current);
 }
 
 function toggleTheme() {
@@ -5654,14 +5697,12 @@ function initBackToTop() {
 // INITIALIZATION
 // ============================================
 function init() {
-  // Theme
+  // Theme (already applied by critical inline script in <head>, just sync icon)
   initTheme();
   $('#themeToggle').addEventListener('click', toggleTheme);
 
-  // Language (browser detection)
-  CURRENT_LANG = detectLanguage();
-  document.documentElement.lang = CURRENT_LANG;
-  document.documentElement.dir = CURRENT_LANG === 'ar' ? 'rtl' : 'ltr';
+  // Language (already applied by critical inline script, just sync state)
+  CURRENT_LANG = document.documentElement.lang || detectLanguage();
   const langBtn = $('#langToggle');
   if (langBtn) {
     langBtn.textContent = CURRENT_LANG.toUpperCase();
@@ -5690,7 +5731,10 @@ function init() {
   // Router
   router();
 
-  console.log('JobFinder initialized successfully | Language:', CURRENT_LANG);
+  // Reveal body after full init (prevents any residual flicker)
+  document.body.classList.add('ready');
+
+  console.log('JobFinder initialized | Lang:', CURRENT_LANG, '| Theme:', document.documentElement.getAttribute('data-theme'));
 }
 
 // Start when DOM is ready
