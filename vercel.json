@@ -2,16 +2,6 @@
   "outputDirectory": "dist",
   "trailingSlash": false,
   "cleanUrls": true,
-  "rewrites": [
-    { "source": "/jobs", "destination": "/index.html" },
-    { "source": "/categories", "destination": "/index.html" },
-    { "source": "/countries", "destination": "/index.html" },
-    { "source": "/articles", "destination": "/index.html" },
-    { "source": "/faq", "destination": "/index.html" },
-    { "source": "/about", "destination": "/index.html" },
-    { "source": "/search", "destination": "/index.html" },
-    { "source": "/saved", "destination": "/index.html" }
-  ],
   "headers": [
     {
       "source": "/(.*)",

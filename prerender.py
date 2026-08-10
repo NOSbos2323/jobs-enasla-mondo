@@ -751,11 +751,506 @@ def render_article_page(article):
 # MAIN: Generate all pages
 # ============================================
 
+def render_home_page():
+    """Render a fully pre-rendered home page with all jobs visible to Googlebot"""
+    url_path = "/"
+    title = f"JobFinder - منصة البحث عن الوظائف في الجزائر ودول الخليج"
+    description = "ابحث عن آلاف الوظائف الشاغرة في الجزائر والإمارات والسعودية وقطر والكويت وعمان والبحرين. وظائف في البرمجة، الهندسة، التسويق، المبيعات، الحرف والمزيد."
+
+    crumbs = [{"name": "الرئيسية", "url": "/"}]
+
+    # Sort jobs by date (newest first)
+    sorted_jobs = sorted(JOBS, key=lambda j: j.get('daysAgo', 0))
+
+    # Top categories with counts
+    cat_counts = {}
+    for j in JOBS:
+        cat_counts[j.get('category', '')] = cat_counts.get(j.get('category', ''), 0) + 1
+    top_categories = sorted(CATEGORIES, key=lambda c: cat_counts.get(c['slug'], 0), reverse=True)[:8]
+
+    # New jobs in last 24h
+    new_jobs_24h = [j for j in JOBS if j.get('daysAgo', 0) <= 1]
+
+    # Generate JobPosting JSON-LD for each job on the page
+    job_schemas = []
+    for job in sorted_jobs[:20]:  # Top 20 jobs get full schema
+        date_posted, valid_through = job_dates(job)
+        schema = {
+            "@context": "https://schema.org",
+            "@type": "JobPosting",
+            "title": job['title'],
+            "description": job.get('description', '')[:5000],
+            "datePosted": date_posted,
+            "validThrough": valid_through,
+            "employmentType": job.get('employmentType', 'full-time'),
+            "hiringOrganization": {
+                "@type": "Organization",
+                "name": job.get('company', '')
+            },
+            "jobLocation": {
+                "@type": "Place",
+                "address": {
+                    "@type": "PostalAddress",
+                    "addressLocality": job.get('cityName', ''),
+                    "addressCountry": job.get('countryName', '')
+                }
+            },
+            "url": f"{BASE_URL}/jobs/job-{job['id']}"
+        }
+        if job.get('salary'):
+            schema["baseSalary"] = {
+                "@type": "MonetaryAmount",
+                "currency": job['salary'].get('currency', ''),
+                "minValue": job['salary'].get('min', 0),
+                "maxValue": job['salary'].get('max', 0),
+                "unitText": "MONTH"
+            }
+        job_schemas.append(schema)
+
+    # ItemList schema containing all jobs
+    item_list_schema = {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        "itemListElement": [
+            {
+                "@type": "ListItem",
+                "position": i + 1,
+                "url": f"{BASE_URL}/jobs/job-{job['id']}",
+                "name": job['title']
+            }
+            for i, job in enumerate(sorted_jobs)
+        ]
+    }
+
+    # WebSite + SearchAction schema
+    website_schema = {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "url": BASE_URL + "/",
+        "name": "JobFinder",
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+                "@type": "EntryPoint",
+                "urlTemplate": BASE_URL + "/jobs?q={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+        }
+    }
+
+    # Organization schema
+    org_schema = {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "JobFinder",
+        "url": BASE_URL + "/",
+        "logo": BASE_URL + "/og-image.png"
+    }
+
+    # Combine all schemas
+    all_schemas = ''
+    for schema in [org_schema, website_schema, item_list_schema] + job_schemas:
+        all_schemas += f'\n<script type="application/ld+json">{json.dumps(schema, ensure_ascii=False, indent=2)}</script>'
+
+    head = build_head(title, description, url_path, 'website', '', all_schemas)
+
+    # Build job cards HTML (static, no JS needed)
+    job_cards_html = ''
+    for job in sorted_jobs[:12]:  # Show 12 recent jobs on homepage
+        date_posted, _ = job_dates(job)
+        job_cards_html += f'''<article class="job-card">
+  <div class="job-card-header">
+    <div class="company-logo">{escape_html(job.get('companyLogo', job.get('company', '')[:2]))}</div>
+    <div class="job-card-info">
+      <h3 class="job-card-title"><a href="/jobs/job-{job['id']}">{escape_html(job['title'])}</a></h3>
+      <div class="job-card-company">{escape_html(job.get('company', ''))}</div>
+    </div>
+  </div>
+  <div class="job-card-meta">
+    <span>📍 {escape_html(job.get('location', ''))}</span>
+    <span>💼 {escape_html(job.get('employmentTypeName', ''))}</span>
+  </div>
+  <div class="job-card-tags">
+    <span class="tag">{escape_html(job.get('categoryName', ''))}</span>
+    {'<span class="badge-new" style="position:static">جديد</span>' if job.get('daysAgo', 0) <= 1 else ''}
+  </div>
+  <div class="job-card-footer">
+    <span class="job-card-salary">{job['salary']['min']}-{job['salary']['max']} {job['salary']['currency'] if job.get('salary') else ''}</span>
+    <a href="/jobs/job-{job['id']}" class="btn btn-primary btn-sm">عرض التفاصيل</a>
+  </div>
+</article>'''
+
+    # Build categories HTML
+    categories_html = ''
+    for cat in top_categories:
+        count = cat_counts.get(cat['slug'], 0)
+        if count > 0:
+            categories_html += f'''<a href="/jobs/{cat['slug']}" class="cat-card">
+  <div class="cat-icon">{cat['icon']}</div>
+  <h3>{escape_html(cat['name'])}</h3>
+  <div class="count">{count} وظيفة</div>
+</a>'''
+
+    # Build countries HTML
+    countries_html = ''
+    for country in COUNTRIES[:8]:
+        count = len([j for j in JOBS if j.get('country') == country['slug']])
+        countries_html += f'''<a href="/jobs/{country['slug']}" class="country-card">
+  <div class="country-icon" style="font-size:2rem">{country['flag']}</div>
+  <h3>{escape_html(country['name'])}</h3>
+  <div class="count">{count} وظيفة</div>
+</a>'''
+
+    body = f'''<body class="ready">
+{build_header()}
+<main id="main" class="main-content">
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container hero-content">
+      <h1>اعثر على وظيفتك المثالية في <span>الجزائر ودول الخليج</span></h1>
+      <p>آلاف الوظائف الشاغرة من أفضل الشركات في انتظارك. ابحث الآن وابدأ رحلتك المهنية.</p>
+      <form class="search-bar" action="/jobs" method="get">
+        <div class="search-input-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="text" class="search-input" name="q" placeholder="ابحث عن وظيفة، شركة، أو كلمة مفتاحية..." aria-label="بحث">
+        </div>
+        <button type="submit" class="btn btn-search btn-primary">🔍 بحث</button>
+      </form>
+      <div class="hero-stats">
+        <div class="hero-stat"><div class="num">{len(JOBS)}+</div><div class="label">وظيفة شاغرة</div></div>
+        <div class="hero-stat"><div class="num">{len(new_jobs_24h)}</div><div class="label">وظيفة جديدة اليوم</div></div>
+        <div class="hero-stat"><div class="num">{len(COUNTRIES)}</div><div class="label">دولة</div></div>
+        <div class="hero-stat"><div class="num">{len(CATEGORIES)}</div><div class="label">مجال</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Recent Jobs -->
+  <section class="section">
+    <div class="container">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">الوظائف الحديثة</h2>
+          <p class="section-subtitle">أحدث الفرص الوظيفية المضافة على المنصة</p>
+        </div>
+        <a href="/jobs" class="btn btn-outline">عرض الكل</a>
+      </div>
+      <div class="jobs-grid">
+        {job_cards_html}
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats Section -->
+  <section class="stats-section">
+    <div class="container">
+      <div class="stats-grid">
+        <div class="stat-item"><div class="num">{len(JOBS)}+</div><div class="label">وظيفة متاحة</div></div>
+        <div class="stat-item"><div class="num">{len(set(j.get('company','') for j in JOBS))}</div><div class="label">شركة مسجلة</div></div>
+        <div class="stat-item"><div class="num">{len(CITIES)}</div><div class="label">مدينة</div></div>
+        <div class="stat-item"><div class="num">{len(ARTICLES)}</div><div class="label">دليل ومقال</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Top Categories -->
+  <section class="section">
+    <div class="container">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">أكثر المجالات طلباً</h2>
+          <p class="section-subtitle">تصفح الوظائف حسب المجال الذي يناسبك</p>
+        </div>
+        <a href="/categories" class="btn btn-outline">كل المجالات</a>
+      </div>
+      <div class="categories-grid">
+        {categories_html}
+      </div>
+    </div>
+  </section>
+
+  <!-- Countries -->
+  <section class="section" style="background:var(--bg-alt)">
+    <div class="container">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">الدول المتاحة</h2>
+          <p class="section-subtitle">اختر الدولة للبحث عن وظائف فيها</p>
+        </div>
+        <a href="/countries" class="btn btn-outline">كل الدول</a>
+      </div>
+      <div class="countries-grid">
+        {countries_html}
+      </div>
+    </div>
+  </section>
+
+  <!-- Career Guide -->
+  <section class="section" style="background:var(--bg-alt)">
+    <div class="container">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">دليل الباحث عن عمل</h2>
+          <p class="section-subtitle">مقالات ونصائح عملية لمساعدتك في رحلة البحث عن وظيفة</p>
+        </div>
+        <a href="/articles" class="btn btn-outline">كل المقالات</a>
+      </div>
+      <div class="articles-grid">
+        {''.join(f'''<a href="/articles/{a['slug']}" class="article-card">
+          <div class="article-card-img">{a.get('icon', '📄')}</div>
+          <div class="article-card-body">
+            <div class="article-card-cat">{escape_html(a.get('category', ''))}</div>
+            <h3>{escape_html(a['title'])}</h3>
+            <p>{escape_html(a.get('excerpt', '')[:100])}</p>
+          </div>
+        </a>''' for a in ARTICLES[:4])}
+      </div>
+    </div>
+  </section>
+</main>
+{build_footer()}
+<button class="back-to-top" id="backToTop" aria-label="العودة للأعلى">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>
+</button>
+</body></html>'''
+
+    return head + body
+
+def render_jobs_list_page():
+    """Render /jobs listing page with ALL jobs visible to Googlebot"""
+    url_path = "/jobs"
+    title = "جميع الوظائف - JobFinder | وظائف في الجزائر ودول الخليج"
+    description = f"تصفح {len(JOBS)} وظيفة متاحة في الجزائر والإمارات والسعودية ودول الخليج. وظائف في البرمجة، الهندسة، التسويق، الحرف والمزيد."
+
+    crumbs = [
+        {"name": "الرئيسية", "url": "/"},
+        {"name": "الوظائف", "url": "/jobs"}
+    ]
+    breadcrumb_schema = build_breadcrumb_schema(crumbs)
+    head = build_head(title, description, url_path, 'website', '', breadcrumb_schema)
+
+    # All job cards
+    job_cards = ''.join(job_card_html(j) for j in JOBS)
+
+    body = f'''<body class="ready">
+{build_header()}
+<main id="main" class="main-content">
+  <div class="page-header">
+    <div class="container">
+      {breadcrumbs_html(crumbs)}
+      <h1>جميع الوظائف</h1>
+      <p>تصفح {len(JOBS)} وظيفة متاحة في الجزائر ودول الخليج</p>
+    </div>
+  </div>
+  <section class="section">
+    <div class="container">
+      <div class="jobs-header" style="margin-bottom:20px">
+        <div class="jobs-count">عرض <strong>{len(JOBS)}</strong> وظيفة</div>
+      </div>
+      <div class="jobs-grid">
+        {job_cards}
+      </div>
+    </div>
+  </section>
+</main>
+{build_footer()}
+</body></html>'''
+    return head + body
+
+def render_categories_list_page():
+    """Render /categories listing page"""
+    url_path = "/categories"
+    title = "جميع مجالات العمل - JobFinder"
+    description = "تصفح وظائف في مختلف المجالات: البرمجة، الهندسة، التسويق، التصميم، المالية، الحرف والمزيد."
+
+    crumbs = [{"name": "الرئيسية", "url": "/"}, {"name": "المجالات", "url": "/categories"}]
+    breadcrumb_schema = build_breadcrumb_schema(crumbs)
+    head = build_head(title, description, url_path, 'website', '', breadcrumb_schema)
+
+    cat_cards = ''
+    for cat in CATEGORIES:
+        count = len([j for j in JOBS if j.get('category') == cat['slug']])
+        cat_cards += f'''<a href="/jobs/{cat['slug']}" class="cat-card">
+  <div class="cat-icon">{cat['icon']}</div>
+  <h3>{escape_html(cat['name'])}</h3>
+  <div class="count">{count} وظيفة</div>
+</a>'''
+
+    body = f'''<body class="ready">
+{build_header()}
+<main id="main" class="main-content">
+  <div class="page-header">
+    <div class="container">
+      {breadcrumbs_html(crumbs)}
+      <h1>جميع المجالات</h1>
+      <p>تصفح الوظائف حسب المجال الذي يناسب مهاراتك</p>
+    </div>
+  </div>
+  <section class="section">
+    <div class="container">
+      <div class="categories-grid">
+        {cat_cards}
+      </div>
+    </div>
+  </section>
+</main>
+{build_footer()}
+</body></html>'''
+    return head + body
+
+def render_countries_list_page():
+    """Render /countries listing page"""
+    url_path = "/countries"
+    title = "دول العمل المتاحة - JobFinder"
+    description = "ابحث عن وظائف في الجزائر، الإمارات، السعودية، قطر، الكويت، عمان، البحرين ومصر والمغرب وتونس وغيرها."
+
+    crumbs = [{"name": "الرئيسية", "url": "/"}, {"name": "الدول", "url": "/countries"}]
+    breadcrumb_schema = build_breadcrumb_schema(crumbs)
+    head = build_head(title, description, url_path, 'website', '', breadcrumb_schema)
+
+    country_cards = ''
+    for country in COUNTRIES:
+        count = len([j for j in JOBS if j.get('country') == country['slug']])
+        country_cards += f'''<a href="/jobs/{country['slug']}" class="country-card">
+  <div class="country-icon" style="font-size:2.5rem">{country['flag']}</div>
+  <h3>{escape_html(country['name'])}</h3>
+  <div class="count">{count} وظيفة</div>
+</a>'''
+
+    body = f'''<body class="ready">
+{build_header()}
+<main id="main" class="main-content">
+  <div class="page-header">
+    <div class="container">
+      {breadcrumbs_html(crumbs)}
+      <h1>جميع الدول</h1>
+      <p>ابحث عن وظائف في الجزائر ودول الخليج العربي</p>
+    </div>
+  </div>
+  <section class="section">
+    <div class="container">
+      <div class="countries-grid">
+        {country_cards}
+      </div>
+    </div>
+  </section>
+</main>
+{build_footer()}
+</body></html>'''
+    return head + body
+
+def render_articles_list_page():
+    """Render /articles listing page"""
+    url_path = "/articles"
+    title = "دليل الباحث عن عمل - مقالات ونصائح | JobFinder"
+    description = "مقالات عملية للباحثين عن عمل: كيفية كتابة السيرة الذاتية، الاستعداد للمقابلة، البحث عن وظيفة في الجزائر ودول الخليج."
+
+    crumbs = [{"name": "الرئيسية", "url": "/"}, {"name": "دليل الباحث", "url": "/articles"}]
+    breadcrumb_schema = build_breadcrumb_schema(crumbs)
+    head = build_head(title, description, url_path, 'website', '', breadcrumb_schema)
+
+    article_cards = ''
+    for a in ARTICLES:
+        article_cards += f'''<a href="/articles/{a['slug']}" class="article-card">
+  <div class="article-card-img">{a.get('icon', '📄')}</div>
+  <div class="article-card-body">
+    <div class="article-card-cat">{escape_html(a.get('category', ''))}</div>
+    <h3>{escape_html(a['title'])}</h3>
+    <p>{escape_html(a.get('excerpt', '')[:120])}</p>
+    <div class="article-card-meta">
+      <span>⏱️ {a.get('readingTime', 5)} دقائق</span>
+    </div>
+  </div>
+</a>'''
+
+    body = f'''<body class="ready">
+{build_header()}
+<main id="main" class="main-content">
+  <div class="page-header">
+    <div class="container">
+      {breadcrumbs_html(crumbs)}
+      <h1>📚 دليل الباحث عن عمل</h1>
+      <p>مقالات ونصائح عملية لمساعدتك في رحلتك المهنية</p>
+    </div>
+  </div>
+  <section class="section">
+    <div class="container">
+      <div class="articles-grid">
+        {article_cards}
+      </div>
+    </div>
+  </section>
+</main>
+{build_footer()}
+</body></html>'''
+    return head + body
+
+def render_faq_page():
+    """Render /faq page with FAQPage schema"""
+    url_path = "/faq"
+    title = "الأسئلة الشائعة | JobFinder"
+    description = "إجابات على أسئلة شائعة حول البحث عن عمل، التقديم للوظائف، أنواع العقود، كتابة السيرة الذاتية."
+
+    crumbs = [{"name": "الرئيسية", "url": "/"}, {"name": "الأسئلة الشائعة", "url": "/faq"}]
+    breadcrumb_schema = build_breadcrumb_schema(crumbs)
+
+    faqs = [
+        {"q": "كيف أبحث عن وظيفة على JobFinder؟", "a": "يمكنك البحث عن وظيفة باستخدام شريط البحث في الصفحة الرئيسية للبحث بالكلمات المفتاحية، أو تصفح الوظائف حسب الدولة والمدينة والمجال."},
+        {"q": "كيف أتقدم لوظيفة؟", "a": "بعد العثور على وظيفة مناسبة، اضغط على زر 'تقدم الآن' في صفحة تفاصيل الوظيفة. سيتم تحويلك إلى صفحة التقديم الخاصة بالشركة."},
+        {"q": "ما معنى أنواع العقود المختلفة؟", "a": "دوام كامل: 40 ساعة أسبوعياً. دوام جزئي: ساعات أقل. عقد مؤقت: لمدة محددة. عن بُعد: العمل من المنزل. تدريب: للطلاب أو حديثي التخرج."},
+        {"q": "كيف أنشئ سيرة ذاتية احترافية؟", "a": "ركز على المعلومات الشخصية، الملخص المهني، الخبرة العملية بإنجازات محددة، التعليم، والمهارات. خصص سيرتك لكل وظيفة."},
+        {"q": "هل الوظائف على JobFinder حقيقية؟", "a": "نعم، نسعى لتوفير وظائف حقيقية وموثوقة. لا ندفع أي رسوم مقابل التقديم."},
+        {"q": "كم مرة يتم تحديث الوظائف؟", "a": "نقوم بتحديث قائمة الوظائف بشكل دوري. يتم إزالة الوظائف منتهية الصلاحية وإضافة وظائف جديدة باستمرار."},
+    ]
+
+    faq_schema = {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [{"@type": "Question", "name": f["q"], "acceptedAnswer": {"@type": "Answer", "text": f["a"]}} for f in faqs]
+    }
+    all_schemas = f'<script type="application/ld+json">{json.dumps(breadcrumb_schema, ensure_ascii=False)}</script>'
+    all_schemas += f'\n<script type="application/ld+json">{json.dumps(faq_schema, ensure_ascii=False)}</script>'
+
+    head = build_head(title, description, url_path, 'website', '', all_schemas)
+
+    faq_items = ''
+    for i, f in enumerate(faqs):
+        faq_items += f'''<div class="faq-item {'open' if i == 0 else ''}">
+  <button class="faq-question" aria-expanded="{'true' if i == 0 else 'false'}">
+    <span>{escape_html(f['q'])}</span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+  </button>
+  <div class="faq-answer"><div class="faq-answer-inner">{escape_html(f['a'])}</div></div>
+</div>'''
+
+    body = f'''<body class="ready">
+{build_header()}
+<main id="main" class="main-content">
+  <div class="page-header">
+    <div class="container">
+      {breadcrumbs_html(crumbs)}
+      <h1>❓ الأسئلة الشائعة</h1>
+      <p>إجابات على أكثر الأسئلة شيوعاً</p>
+    </div>
+  </div>
+  <section class="section">
+    <div class="container">
+      <div class="faq-list">
+        {faq_items}
+      </div>
+    </div>
+  </section>
+</main>
+{build_footer()}
+</body></html>'''
+    return head + body
+
 def main():
-    # 1. Copy original index.html as the home page
+    # 1. Generate pre-rendered home page (NOT the SPA)
+    home_html = render_home_page()
     with open(os.path.join(DIST_DIR, 'index.html'), 'w', encoding='utf-8') as f:
-        f.write(ORIGINAL_HTML)
-    print(f"✓ Home page (index.html)")
+        f.write(home_html)
+    print(f"✓ Home page (pre-rendered with {len(JOBS)} jobs)")
 
     # 2. Generate job pages
     for job in JOBS:
@@ -804,8 +1299,38 @@ def main():
             f.write(html)
     print(f"✓ {len(ARTICLES)} article pages")
 
+    # 6b. Generate /jobs listing page (all jobs)
+    jobs_list_html = render_jobs_list_page()
+    with open(os.path.join(DIST_DIR, 'jobs.html'), 'w', encoding='utf-8') as f:
+        f.write(jobs_list_html)
+    print(f"✓ /jobs listing page")
+
+    # 6c. Generate /categories listing page
+    cat_list_html = render_categories_list_page()
+    with open(os.path.join(DIST_DIR, 'categories.html'), 'w', encoding='utf-8') as f:
+        f.write(cat_list_html)
+    print(f"✓ /categories listing page")
+
+    # 6d. Generate /countries listing page
+    countries_list_html = render_countries_list_page()
+    with open(os.path.join(DIST_DIR, 'countries.html'), 'w', encoding='utf-8') as f:
+        f.write(countries_list_html)
+    print(f"✓ /countries listing page")
+
+    # 6e. Generate /articles listing page
+    articles_list_html = render_articles_list_page()
+    with open(os.path.join(DIST_DIR, 'articles.html'), 'w', encoding='utf-8') as f:
+        f.write(articles_list_html)
+    print(f"✓ /articles listing page")
+
+    # 6f. Generate /faq page
+    faq_html = render_faq_page()
+    with open(os.path.join(DIST_DIR, 'faq.html'), 'w', encoding='utf-8') as f:
+        f.write(faq_html)
+    print(f"✓ /faq page")
+
     # 7. Copy static files
-    for fname in ['robots.txt', 'sitemap.xml', 'og-image.png', '_redirects']:
+    for fname in ['robots.txt', 'sitemap.xml', 'og-image.svg', '_redirects']:
         src = os.path.join(PROJECT_DIR, fname)
         if os.path.exists(src):
             import shutil
