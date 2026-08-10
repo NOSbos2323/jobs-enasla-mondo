@@ -3793,8 +3793,8 @@ function slugify(text) {
 }
 
 function jobSlug(job) {
-  const slug = slugify(job.title + '-' + job.company);
-  return `${slug}-${job.id}`;
+  // Use only ID for URL safety - must match pre-renderer output
+  return `job-${job.id}`;
 }
 
 function formatDate(dateStr) {

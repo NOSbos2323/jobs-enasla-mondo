@@ -15,32 +15,39 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Verify required secrets
         run: |
           if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
-            echo "::error::VERCEL_TOKEN secret is missing. Create it at Settings → Secrets → Actions"
-            exit 1
-          fi
-          if [ -z "${{ secrets.VERCEL_ORG_ID }}" ]; then
-            echo "::error::VERCEL_ORG_ID secret is missing. Find it at Vercel Dashboard → Settings → General"
-            exit 1
-          fi
-          if [ -z "${{ secrets.VERCEL_PROJECT_ID }}" ]; then
-            echo "::error::VERCEL_PROJECT_ID secret is missing. Find it at Vercel Project → Settings → General"
+            echo "::error::VERCEL_TOKEN secret is missing"
             exit 1
           fi
 
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
-      - name: Set Vercel env
-        run: |
-          echo "VERCEL_ORG_ID=$VERCEL_ORG_ID" > .vercel/project.local
-          echo "VERCEL_PROJECT_ID=$VERCEL_PROJECT_ID" >> .vercel/project.local
-          mkdir -p .vercel
-
       - name: Pull Vercel Environment
         run: vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+        continue-on-error: true
+
+      - name: Build Project (pre-render 141+ static pages)
+        run: |
+          python3 prerender.py
+          python3 generate_sitemap.py
 
       - name: Deploy to Vercel
+        run: vercel deploy --prod --prebuilt --yes --token=$VERCEL_TOKEN
+        continue-on-error: true
+
+      - name: Deploy fallback (if prebuilt fails)
+        if: failure()
         run: vercel deploy --prod --yes --token=$VERCEL_TOKEN

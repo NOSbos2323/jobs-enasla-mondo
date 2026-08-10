@@ -1,21 +1,17 @@
 {
-  "outputDirectory": ".",
+  "outputDirectory": "dist",
   "trailingSlash": false,
+  "cleanUrls": true,
+  "buildCommand": "python3 prerender.py && python3 generate_sitemap.py",
   "rewrites": [
-    { "source": "/robots.txt", "destination": "/robots.txt" },
-    { "source": "/sitemap.xml", "destination": "/sitemap.xml" },
-    { "source": "/og-image.png", "destination": "/og-image.png" },
     { "source": "/jobs", "destination": "/index.html" },
-    { "source": "/jobs/:path*", "destination": "/index.html" },
     { "source": "/categories", "destination": "/index.html" },
-    { "source": "/categories/:path*", "destination": "/index.html" },
     { "source": "/countries", "destination": "/index.html" },
-    { "source": "/countries/:path*", "destination": "/index.html" },
     { "source": "/articles", "destination": "/index.html" },
-    { "source": "/articles/:path*", "destination": "/index.html" },
     { "source": "/faq", "destination": "/index.html" },
     { "source": "/about", "destination": "/index.html" },
-    { "source": "/:path*", "destination": "/index.html" }
+    { "source": "/search", "destination": "/index.html" },
+    { "source": "/saved", "destination": "/index.html" }
   ],
   "headers": [
     {
@@ -25,6 +21,20 @@
         { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
         { "key": "X-XSS-Protection", "value": "1; mode=block" }
+      ]
+    },
+    {
+      "source": "/robots.txt",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain; charset=utf-8" },
+        { "key": "Cache-Control", "value": "public, max-age=86400" }
+      ]
+    },
+    {
+      "source": "/sitemap.xml",
+      "headers": [
+        { "key": "Content-Type", "value": "application/xml; charset=utf-8" },
+        { "key": "Cache-Control", "value": "public, max-age=86400" }
       ]
     }
   ]
