@@ -839,49 +839,12 @@ def render_home_page():
     # New jobs in last 24h
     new_jobs_24h = [j for j in JOBS if j.get('daysAgo', 0) <= 1]
 
-    # Generate JobPosting JSON-LD for each job on the page
-    job_schemas = []
-    for job in sorted_jobs[:20]:  # Top 20 jobs get full schema
-        date_posted, valid_through = job_dates(job)
-        schema = {
-            "@context": "https://schema.org",
-            "@type": "JobPosting",
-            "title": job['title'],
-            "description": job.get('description', '')[:5000],
-            "datePosted": date_posted,
-            "validThrough": valid_through,
-            "employmentType": job.get('employmentType', 'full-time'),
-            "hiringOrganization": {
-                "@type": "Organization",
-                "name": job.get('company', '')
-            },
-            "jobLocation": {
-                "@type": "Place",
-                "address": {
-                    "@type": "PostalAddress",
-                    "streetAddress": get_city_address(job.get('city', ''))['street'],
-                    "addressLocality": job.get('cityName', ''),
-                    "addressRegion": job.get('countryName', ''),
-                    "postalCode": get_city_address(job.get('city', ''))['postalCode'],
-                    "addressCountry": job.get('countryName', '')
-                }
-            },
-            "url": f"{BASE_URL}/jobs/job-{job['id']}"
-        }
-        if job.get('salary'):
-            schema["baseSalary"] = {
-                "@type": "MonetaryAmount",
-                "currency": job['salary'].get('currency', ''),
-                "minValue": job['salary'].get('min', 0),
-                "maxValue": job['salary'].get('max', 0),
-                "unitText": "MONTH"
-            }
-        job_schemas.append(schema)
-
-    # ItemList schema containing all jobs
+    # ItemList schema containing all jobs (this is the CORRECT way to list jobs on homepage)
+    # Google recommends ItemList for collections, NOT multiple JobPosting schemas
     item_list_schema = {
         "@context": "https://schema.org",
         "@type": "ItemList",
+        "name": "وظائف شاغرة في الجزائر ودول الخليج",
         "itemListElement": [
             {
                 "@type": "ListItem",
@@ -918,9 +881,9 @@ def render_home_page():
         "logo": BASE_URL + "/og-image.png"
     }
 
-    # Combine all schemas
+    # Combine schemas - NO JobPosting schemas on homepage (each job has its own page)
     all_schemas = ''
-    for schema in [org_schema, website_schema, item_list_schema] + job_schemas:
+    for schema in [org_schema, website_schema, item_list_schema]:
         all_schemas += f'\n<script type="application/ld+json">{json.dumps(schema, ensure_ascii=False, indent=2)}</script>'
 
     head = build_head(title, description, url_path, 'website', '', all_schemas)
@@ -1020,6 +983,22 @@ def render_home_page():
         <div class="stat-item"><div class="num">{len(set(j.get('company','') for j in JOBS))}</div><div class="label">شركة مسجلة</div></div>
         <div class="stat-item"><div class="num">{len(CITIES)}</div><div class="label">مدينة</div></div>
         <div class="stat-item"><div class="num">{len(ARTICLES)}</div><div class="label">دليل ومقال</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ALL Jobs - Internal Links for Googlebot Crawling -->
+  <section class="section">
+    <div class="container">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">جميع الوظائف المتاحة ({len(JOBS)} وظيفة)</h2>
+          <p class="section-subtitle">روابط مباشرة لكل وظيفة - كل وظيفة لها صفحة مستقلة بتفاصيل كاملة</p>
+        </div>
+        <a href="/jobs" class="btn btn-outline">عرض كل الوظائف</a>
+      </div>
+      <div class="all-jobs-links" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-top:20px">
+        {''.join(f'<a href="/jobs/job-{job["id"]}" style="display:block;padding:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;text-decoration:none;color:var(--text);transition:all .2s"><strong>{escape_html(job["title"])}</strong><br><small style="color:var(--text-muted)">{escape_html(job.get("company",""))} · {escape_html(job.get("cityName",""))}</small></a>' for job in sorted_jobs)}
       </div>
     </div>
   </section>
