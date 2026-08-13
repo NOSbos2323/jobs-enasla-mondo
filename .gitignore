@@ -23,3 +23,7 @@ __pycache__/
 
 # Note: dist/ is NOT ignored - it contains pre-rendered static HTML pages
 # that must be deployed for SEO (Googlebot needs static HTML, not SPA)
+service-account-key.json
+google_indexing.py
+indexing_continue.py
+indexing-results.json
