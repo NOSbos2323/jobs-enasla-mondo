@@ -20,7 +20,7 @@ CATEGORIES = ["programming","engineering","marketing","design","finance","sales"
 COUNTRIES = ["algeria","uae","saudi-arabia","qatar","kuwait","oman","bahrain","egypt","morocco","tunisia","jordan","lebanon","iraq","sudan","libya","palestine","yemen","syria"]
 CITIES = ["algiers","oran","constantine","annaba","dubai","abu-dhabi","sharjah","riyadh","jeddah","dammam","mecca","medina","doha","kuwait-city","muscat","salalah","manama","cairo","alexandria","giza","casablanca","rabat","marrakech","tunis","sfax","amman","beirut","baghdad","basra","khartoum","tripoli","gaza","ramallah","sanaa","aden","damascus","aleppo"]
 ARTICLES = ["how-to-write-cv","cover-letter","best-job-search-websites","interview-preparation","jobs-without-experience","jobs-algeria","jobs-uae","jobs-saudi-arabia"]
-JOB_IDS = list(range(1, 101))
+JOB_IDS = list(range(1, 102))
 
 def generate():
     urls = []
