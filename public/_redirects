@@ -1,1 +1,3 @@
-/*    /index.html   200
+# JobFinder - redirects
+# Any path that doesn't match a static file falls back to /404.html with HTTP 404 status
+/*    /404.html   404

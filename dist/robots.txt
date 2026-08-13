@@ -7,6 +7,9 @@ Disallow: /api/
 Disallow: /admin/
 Disallow: /*.json$
 Disallow: /private/
+Disallow: /*?q=
+Disallow: /*?page=
+Disallow: /*?lang=
 
 # Googlebot - السماح الكامل
 User-agent: Googlebot
@@ -49,9 +52,6 @@ Disallow: /
 
 User-agent: DotBot
 Disallow: /
-
-# معدل الزحف
-Crawl-delay: 1
 
 # خريطة الموقع
 Sitemap: https://jobs-enasla-mondo.vercel.app/sitemap.xml
