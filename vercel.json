@@ -2,6 +2,22 @@
   "outputDirectory": "dist",
   "trailingSlash": false,
   "cleanUrls": true,
+  "functions": {
+    "api/capture.js": {
+      "includeFiles": "dist/**"
+    }
+  },
+  "rewrites": [
+    { "source": "/", "destination": "/api/capture?path=/" },
+    { "source": "/jobs", "destination": "/api/capture?path=/jobs" },
+    { "source": "/jobs/:path*", "destination": "/api/capture?path=/jobs/:path*" },
+    { "source": "/categories", "destination": "/api/capture?path=/categories" },
+    { "source": "/countries", "destination": "/api/capture?path=/countries" },
+    { "source": "/articles", "destination": "/api/capture?path=/articles" },
+    { "source": "/articles/:path*", "destination": "/api/capture?path=/articles/:path*" },
+    { "source": "/faq", "destination": "/api/capture?path=/faq" },
+    { "source": "/about", "destination": "/api/capture?path=/about" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
