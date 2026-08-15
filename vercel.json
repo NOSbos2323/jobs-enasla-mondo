@@ -7,16 +7,17 @@
       "includeFiles": "dist/**"
     }
   },
-  "rewrites": [
-    { "source": "/", "destination": "/api/capture?path=/" },
-    { "source": "/jobs", "destination": "/api/capture?path=/jobs" },
-    { "source": "/jobs/:path*", "destination": "/api/capture?path=/jobs/:path*" },
-    { "source": "/categories", "destination": "/api/capture?path=/categories" },
-    { "source": "/countries", "destination": "/api/capture?path=/countries" },
-    { "source": "/articles", "destination": "/api/capture?path=/articles" },
-    { "source": "/articles/:path*", "destination": "/api/capture?path=/articles/:path*" },
-    { "source": "/faq", "destination": "/api/capture?path=/faq" },
-    { "source": "/about", "destination": "/api/capture?path=/about" }
+  "routes": [
+    { "src": "^/$", "dest": "/api/capture?path=/" },
+    { "src": "^/jobs$", "dest": "/api/capture?path=/jobs" },
+    { "src": "^/jobs/(.*)$", "dest": "/api/capture?path=/jobs/$1" },
+    { "src": "^/categories$", "dest": "/api/capture?path=/categories" },
+    { "src": "^/countries$", "dest": "/api/capture?path=/countries" },
+    { "src": "^/articles$", "dest": "/api/capture?path=/articles" },
+    { "src": "^/articles/(.*)$", "dest": "/api/capture?path=/articles/$1" },
+    { "src": "^/faq$", "dest": "/api/capture?path=/faq" },
+    { "src": "^/about$", "dest": "/api/capture?path=/about" },
+    { "handle": "filesystem" }
   ],
   "headers": [
     {
