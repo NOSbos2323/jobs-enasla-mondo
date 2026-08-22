@@ -19,8 +19,18 @@ function hashIp(ip) {
   return crypto.createHash('sha256').update(`${IP_HASH_SALT}:${ip}`).digest('hex');
 }
 
+function crawlerFamily(userAgent) {
+  const value = String(userAgent || '');
+  if (/google-inspectiontool/i.test(value)) return 'google_inspection_tool';
+  if (/googlebot/i.test(value)) return 'googlebot';
+  if (/storebot-google/i.test(value)) return 'storebot_google';
+  if (/googleother/i.test(value)) return 'google_other';
+  if (/bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot/i.test(value)) return 'other_bot';
+  return 'browser_or_unknown';
+}
+
 function isClaimedGooglebot(userAgent) {
-  return /googlebot|google-inspectiontool|storebot-google|googleother/i.test(userAgent || '');
+  return crawlerFamily(userAgent) !== 'browser_or_unknown';
 }
 
 async function verifyGooglebot(ip) {
@@ -72,20 +82,57 @@ async function writeVisit(req, responseMs, statusCode, requestPath) {
   if (!DATABASE_URL) return;
   const userAgent = String(req.headers['user-agent'] || '');
   const ip = getClientIp(req);
+  const family = crawlerFamily(userAgent);
   const claimed = isClaimedGooglebot(userAgent);
   const verification = claimed ? await verifyGooglebot(ip) : { verified: false, method: 'not_claimed_googlebot' };
   const sql = neon(DATABASE_URL);
+  const correlationKey = `${hashIp(ip) || 'no-ip'}:${requestPath}`;
+  let stage = 'ordinary_or_unknown';
+  let confidence = 0;
+  let reason = 'user-agent_not_google_family';
+  if (family === 'google_inspection_tool') {
+    stage = 'inspection_fetch';
+    confidence = verification.verified ? 100 : 20;
+    reason = verification.verified ? 'verified_google_inspection_tool' : 'inspection_user_agent_unverified';
+  } else if (family === 'googlebot' && verification.verified) {
+    const recent = await sql`
+      SELECT 1 FROM googlebot_visits
+      WHERE correlation_key = ${correlationKey}
+        AND googlebot_verified = true
+        AND visited_at > NOW() - INTERVAL '30 minutes'
+      LIMIT 1
+    `;
+    if (recent.length) {
+      stage = 'second_wave_render_candidate';
+      confidence = 65;
+      reason = 'verified_googlebot_repeat_same_path_within_30m';
+    } else {
+      stage = 'first_wave_fetch_candidate';
+      confidence = 85;
+      reason = 'first_verified_googlebot_fetch_for_path';
+    }
+  } else if (family === 'googlebot') {
+    stage = 'unverified_googlebot_claim';
+    confidence = 5;
+    reason = verification.method;
+  } else if (family === 'other_bot') {
+    stage = 'other_bot';
+    confidence = 90;
+    reason = 'known_non_google_bot_user_agent';
+  }
   await sql`
     INSERT INTO googlebot_visits (
       method, path, status_code, user_agent, ip_hash, host, referer,
       is_googlebot_claimed, googlebot_verified, verification_method,
-      response_ms, deployment_id, metadata
+      response_ms, deployment_id, metadata, crawler_family, fetch_stage,
+      stage_confidence, stage_reason, correlation_key
     ) VALUES (
       ${req.method || 'GET'}, ${requestPath}, ${statusCode}, ${userAgent}, ${hashIp(ip)},
       ${req.headers.host || null}, ${req.headers.referer || null}, ${claimed},
       ${verification.verified}, ${verification.method}, ${responseMs},
       ${process.env.VERCEL_DEPLOYMENT_ID || null},
-      ${JSON.stringify({ region: process.env.VERCEL_REGION || null })}::jsonb
+      ${JSON.stringify({ region: process.env.VERCEL_REGION || null, stage_model: 'heuristic-v1' })}::jsonb,
+      ${family}, ${stage}, ${confidence}, ${reason}, ${correlationKey}
     )
   `;
 }
